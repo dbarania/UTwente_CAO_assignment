@@ -7,7 +7,7 @@
 #define BLOCK_TYPE uint16_t
 #endif
 typedef BLOCK_TYPE block;
-block msbExtraction = 1 << (8 * sizeof(block) - 1);
+block msbExtraction = (block)1 << (8 * sizeof(block) - 1);
 
 void getHammingWeight(const block *sequence1,
                       const block *sequence2,
