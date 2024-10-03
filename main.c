@@ -3,12 +3,51 @@
 #include <stdint.h>
 #include <unistd.h>
 
+/* 
+    Efficiency of calculation (time and memory wise) depends on 
+    the size of baisc block. Using macros, size of the block can be set 
+    at the compile time, it should be unsinged value.
+    By default block is set to uint16_t.
+*/
 #ifndef BLOCK_TYPE
 #define BLOCK_TYPE uint16_t
 #endif
 typedef BLOCK_TYPE block;
 block msbExtraction = (block)1 << (8 * sizeof(block) - 1);
 
+/*
+    Random generation of binary strings assumes that rand() returns 31 bits
+    sequences, to properly fill 32 bits, second value needs to be generated,
+    msb extracted and appended to the from of the first values using bitwise
+    operations.
+
+    Length of the sequence doesn't have to be a multiple of a size of a block,
+    in that case we need additional block to store the remaining part. 
+    Only remaining most significant bits are filled, rest is filled with 0's.
+*/
+void generateRandomSequence(block *startPtr,
+                            const uint32_t numberOfBlocks,
+                            const int32_t sequenceLength)
+{
+
+    for (size_t i = 0; i < numberOfBlocks; i++)
+    {
+        startPtr[i] = ((rand() << 1) & msbExtraction) | rand();
+    }
+
+    block alignBits = sequenceLength % (8 * sizeof(block));
+
+    if (alignBits)
+    {
+        uint16_t diff = 8 * sizeof(block) - alignBits;
+        startPtr[numberOfBlocks - 1] <<= diff;
+    }
+}
+
+/*
+    Calculating hamming distance between 2 binary strings comes down to
+    comparing every pair of block with XOR and counting the 1's.
+*/
 void getHammingWeight(const block *sequence1,
                       const block *sequence2,
                       uint32_t *resultPtr,
@@ -28,25 +67,6 @@ void getHammingWeight(const block *sequence1,
     }
 
     *resultPtr += localResult;
-}
-
-void generateRandomSequence(block *startPtr,
-                            const uint32_t numberOfBlocks,
-                            const int32_t sequenceLength)
-{
-
-    for (size_t i = 0; i < numberOfBlocks; i++)
-    {
-        startPtr[i] = ((rand() << 1) & msbExtraction) | rand();
-    }
-
-    block alignBits = sequenceLength % (8 * sizeof(block));
-
-    if (alignBits)
-    {
-        uint16_t diff = 8 * sizeof(block) - alignBits;
-        startPtr[numberOfBlocks - 1] <<= diff;
-    }
 }
 
 int main(int argc, char **argv)
@@ -73,10 +93,12 @@ int main(int argc, char **argv)
         }
     }
     srand(seed);
-
+    
+    // Calculation sto make sure the minimum amount of blocks is used to store data
     const uint32_t numberOfBlocks = (sequenceLength + 8 * sizeof(block) - 1) / (8 * sizeof(block));
+    
+    // Allocating memory for the data
     block **array = (block **)malloc(numberOfSequences * sizeof(block *));
-
     for (int32_t i = 0; i < numberOfSequences; i++)
     {
         array[i] = (block *)malloc(numberOfBlocks * sizeof(block));
